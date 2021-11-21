@@ -7,6 +7,113 @@ Original file is located at
     https://colab.research.google.com/drive/1uyCxyhX3Uw3_Xz3-Q4gx19Ba9dG5NQyL
 """
 
-# 작성 시작 날짜: 2021.09.16.목
-# 프로그램 개요: 확률적 경사 하강법 - 생선의 특성들을 이용하여 생선 종류 예측하여 확률로 출력
+# 작성 시작 날짜: 2021.11.19.금
+# 프로그램 개요: 점진적 학습 알고리즘 [확률적 경사 하강법(SGD)] - 훈련한 모델을 버리지 않고 새로운 데이터에 대해서만 조금씩 훈련하기
 
+"""**에포크** : 훈련 세트를 한 번 모두 사용하는 과정
+
+**확률적 경사하강법** : 전체 훈련 세트에서 1개씩 꺼내 경사를 따라 이동
+
+**미니배치 경사 하강법** : 전체 훈련 세트에서 여러 개(2제곱수)씩 꺼내서 경사를 따라 이동
+
+**배치 경사 하강법** : 전체 훈련 세트 모두 꺼내 경사를 따라 이동
+
+**손실 함수(비용함수)** : 머신러닝 알고리즘이 얼마나 오류가 있는지 측정하는 기준, 샘플하나에 대한 손실 정의, 미분 가능해야함
+
+**손실함수 종류** 로지스틱 손실 함수, 평균 절댓값 오차(3장에 있음), 평균 제곱 오차, 
+
+**로지스틱 손실 함수(이진 크로스엔트로피 손실 함수)** : 0과 1사이의 값 도출
+  
+      타깃 = 1일 때 --> -log(예측 확률)
+      타깃 = 0일 때 --> -log(1 - 예측 확률)
+
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+x = np.arange(0,2,0.1)
+plt.axvline(x = 0, color = 'black', linewidth = 1, linestyle = ':')
+plt.axhline(y = 0, linestyle = '--', color = 'black', linewidth = 1)
+plt.ylim(-1,2.5)
+plt.plot(x, -np.log(x))
+plt.text(0,0,0)
+plt.text(1,0,1)
+plt.text(0.5, 1.5, 'y = -log(x)', fontsize = 15)
+plt.xlabel('prediction probability')
+plt.ylabel('log')
+plt.show()
+
+"""## SGDClassifier"""
+
+#판다스 데이터프레임 만들기
+import pandas as pd
+fish = pd.read_csv('https://raw.githubusercontent.com/rickiepark/hg-mldl/master/fish.csv')
+print(fish.head(10))
+fish.head(10)
+
+#데이터 준비
+
+#입력 데이터: Weight, Length, Diagonal, Height, Width (2차원)
+#타깃 데이터: Species (1차원)
+fish_input = fish[['Weight', 'Length', 'Diagonal', 'Height', 'Width']].to_numpy()
+fish_target = fish['Species'].to_numpy()
+
+#훈련 세트와 테스트 세트로 나누기
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(fish_input, fish_target, random_state = 42)
+
+#표준화 전처리
+from sklearn.preprocessing import StandardScaler
+ss = StandardScaler()
+ss.fit(train_input)
+train_scaled = ss.transform(train_input)
+test_scaled = ss.transform(test_input)
+
+#확률적 경사하강법 분류용 클래스 ==> SGDClassifier : 미니배치 경사하강법, 배치경사하강법 제공하지 않음
+# 하이퍼파라미터    에포크 = max_iter,   손실함수 = loss
+from  sklearn.linear_model import SGDClassifier
+sc = SGDClassifier(loss='log', max_iter=10, random_state=42)
+sc.fit(train_scaled, train_target)
+print(sc.score(train_scaled, train_target))
+print(sc.score(test_scaled, test_target))
+# ==> 과소적합, 정확도 낮음 ==> 반복횟수(에포크) 늘리기
+
+#새로운 모델 만들지 말고 추가로 데이터 사용하여 훈련하기
+#partial_fit() ==> 모델을 이어서 훈련할 때 사용 (한 번 할 때마다 1에포크만 함)
+sc.partial_fit(train_scaled, train_target)
+print(sc.score(train_scaled, train_target))
+print(sc.score(test_scaled, test_target))
+# ==> 아직 점수가 낮음 --> 몇번 더 해야할까?
+
+#적은 에포크 횟수 => 과소적합
+#많은 에포크 횟수 => 과대적합
+#적합한 에포크 횟수 ==> test score가 감소하기 시작한 지점!
+#조기종료 : 과대적합이 시작하기 전에 훈련을 멈추는 것
+
+#에포크에 따른 정확도(score) 그래프 그리기
+import numpy as np
+sc = SGDClassifier(loss='log', random_state=42)
+train_score = []
+test_score = []
+classes = np.unique(train_target) # ['Bream' 'Parkki' 'Perch' 'Pike' 'Roach' 'Smelt' 'Whitefish'] 출력
+print(classes)
+
+#300번의 에포크 동안의 train, test score 그래프 그리기
+for _ in range(0,300):    # _ 는 변수가 필요없을 때 사용
+  sc.partial_fit(train_scaled, train_target, classes=classes)      #fit()를 사용하지 않았기 때문에 타깃에 어떤 종류(classes)들이 있는지 알려줘야함
+  train_score.append(sc.score(train_scaled, train_target))
+  test_score.append(sc.score(test_scaled, test_target))
+
+import matplotlib.pyplot as plt
+plt.plot(train_score)
+plt.plot(test_score)
+plt.xlabel('epoch')
+plt.ylabel('accuracy')
+plt.show()
+
+#100번째 에포크가 적절
+# => 반복 횟수를 100에 맞추고 다시 모델 훈련하기
+sc = SGDClassifier(loss='log', max_iter=100, tol = None, random_state=42)   #tol 매개변수 : 향상될 최솟값 지정
+sc.fit(train_scaled, train_target)
+print(sc.score(train_scaled, train_target))
+print(sc.score(test_scaled, test_target))
