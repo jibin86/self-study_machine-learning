@@ -7,7 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1uyCxyhX3Uw3_Xz3-Q4gx19Ba9dG5NQyL
 """
 
-# 작성 시작 날짜: 2021.11.19.금
 # 프로그램 개요: 점진적 학습 알고리즘 [확률적 경사 하강법(SGD)] - 훈련한 모델을 버리지 않고 새로운 데이터에 대해서만 조금씩 훈련하기
 
 """**에포크** : 훈련 세트를 한 번 모두 사용하는 과정
